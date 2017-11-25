@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-03/schema",
+  "id": "http://jsonschema.net",
+  "required": true,
+  "properties": {
+    "firstName": {
+      "type": "string",
+      "required": true,
+      "maxLength": 25
+    },
+    "lastName": {
+      "type": "string",
+      "required": true,
+      "maxLength": 25
+    },
+    "address": {
+      "type": "string",
+      "required": true,
+      "maxLength": 50
+    }
+  }
+}

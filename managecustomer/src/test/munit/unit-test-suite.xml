@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:mock="http://www.mulesoft.org/schema/mule/mock" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:munit="http://www.mulesoft.org/schema/mule/munit" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:core="http://www.mulesoft.org/schema/mule/core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/mock http://www.mulesoft.org/schema/mule/mock/current/mule-mock.xsd">
+    <munit:config name="munit" doc:name="MUnit configuration" mock-connectors="false" mock-inbounds="false"/>
+    <spring:beans>
+        <spring:import resource="classpath:managecustomer.xml"/>
+    </spring:beans>
+    <munit:test name="Create-Customer-Test" description="Test">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock db call">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Database']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#['1']"/>
+        </mock:when>
+        <munit:set payload="#['{&quot;firstName&quot;: &quot;Ashok-1&quot;, &quot;lastName&quot;: &quot;Kumar&quot;,&quot;address&quot;: &quot;Jackson Street&quot;}']" doc:name="Set Message"/>
+        <flow-ref name="post-customer" doc:name="Flow-ref to post-customer"/>
+        <munit:assert-on-equals expectedValue="#['{ &quot;message&quot;: &quot;Customer has been created&quot; }']" actualValue="#[payload]" doc:name="Assert Equals"/>
+    </munit:test>
+    <munit:test name="Invalid-request-customer-create" description="Invalid customer create request Test" 
+    expectException="org.mule.module.json.validation.JsonSchemaValidationException">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock db call">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Database']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#['1']"/>
+        </mock:when>
+        <munit:set payload="#['{&quot;firstName&quot;: &quot;Ashok-1&quot;,&quot;address&quot;: &quot;Jackson Street&quot;}']" doc:name="Set Message"/>
+        <flow-ref name="post-customer" doc:name="Flow-ref to post-customer"/>
+        <mock:verify-call messageProcessor=".*:.*" times="0" doc:name="Verify Call">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Database']"/>
+            </mock:with-attributes>
+        </mock:verify-call>
+    </munit:test>
+    <munit:test name="Update-customer" description="MUnit Test">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock db call">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Database']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#['not empty']"/>
+        </mock:when>
+        <munit:set payload="#['{&quot;customerId&quot;: &quot;1&quot;,&quot;firstName&quot;: &quot;Ashok41&quot;,&quot;lastName&quot;: &quot;Kumar&quot;,&quot;address&quot;: &quot;Jackson Street&quot;}']" doc:name="Set Message"/>
+        <flow-ref name="put-customer" doc:name="Flow Reference to put"/>
+        <munit:assert-on-equals expectedValue="#['{ &quot;message&quot;: &quot;Customer has been updated&quot; }']" actualValue="#[payload]" doc:name="Assert Equals"/>
+    </munit:test>
+    
+    <munit:test name="Update-customer-invalid-customerID" description="MUnit Test"
+    expectException="org.mule.module.apikit.exception.NotFoundException">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock db call">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Database']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#['']"/>
+        </mock:when>
+        <munit:set payload="#['{&quot;customerId&quot;: &quot;1&quot;,&quot;firstName&quot;: &quot;Ashok41&quot;,&quot;lastName&quot;: &quot;Kumar&quot;,&quot;address&quot;: &quot;Jackson Street&quot;}']" doc:name="Set Message"/>
+        <flow-ref name="put-customer" doc:name="Flow Reference to put"/>
+        <mock:verify-call messageProcessor=".*:.*" doc:name="Verify Call">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Groovy']"/>
+            </mock:with-attributes>
+        </mock:verify-call>
+    </munit:test>
+    
+    <munit:test name="Update-customer-invalid-request" description="MUnit Test"
+    expectException="org.mule.module.json.validation.JsonSchemaValidationException">
+        <munit:set payload="#['{&quot;customerId&quot;: &quot;1&quot;,&quot;firstName&quot;: &quot;Ashok41&quot;,&quot;address&quot;: &quot;Jackson Street&quot;}']" doc:name="Set Message"/>
+        <flow-ref name="put-customer" doc:name="Flow Reference to put"/>
+        <mock:verify-call messageProcessor=".*:.*" doc:name="Verify Call" times="0">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Database']"/>
+            </mock:with-attributes>
+        </mock:verify-call>
+    </munit:test>
+    
+    
+    <munit:test name="Delete-customer" description="MUnit Test">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock db call">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Database']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#['not empty']"/>
+        </mock:when>
+        <munit:set payload="#[]" doc:name="Set Message">
+            <munit:invocation-properties>
+                <munit:invocation-property key="customerId" value="1"/>
+            </munit:invocation-properties>
+        </munit:set>
+        <flow-ref name="delete-customer" doc:name="Flow Reference to put"/>
+        <munit:assert-on-equals expectedValue="#['{ &quot;message&quot;: &quot;Customer has been deleted&quot; }']" actualValue="#[payload]" doc:name="Assert Equals"/>
+    </munit:test>
+    
+    <munit:test name="Delete-customer-invalid-customerID" description="MUnit Test"
+    expectException="org.mule.module.apikit.exception.NotFoundException">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock db call">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Database']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#['']"/>
+        </mock:when>
+        <munit:set payload="#[]" doc:name="Set Message">
+            <munit:invocation-properties>
+                <munit:invocation-property key="customerId" value="1"/>
+            </munit:invocation-properties>
+        </munit:set>
+        <flow-ref name="delete-customer" doc:name="Flow Reference to put"/>
+        <mock:verify-call messageProcessor=".*:.*" doc:name="Verify Call" atLeast="1">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Groovy']"/>
+            </mock:with-attributes>
+        </mock:verify-call>
+    </munit:test>
+    
+    <munit:test name="get-customer-by-customerid" description="MUnit Test">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Database']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[{&quot;customerId&quot;: &quot;1&quot;,&quot;firstName&quot;: &quot;Ashok&quot;,&quot;lastName&quot;: &quot;Kumar&quot;,&quot;address&quot;: &quot;Jackson Street&quot;}]"/>
+        </mock:when>
+        <munit:set payload="#[]" doc:name="Set Message">
+            <munit:inbound-properties>
+                <munit:inbound-property key="http.query.params" value="#[['customerId' : '1']]"/>
+            </munit:inbound-properties>
+        </munit:set>
+        <flow-ref name="get-customer" doc:name="Flow Reference to put"/>
+        <munit:assert-not-null doc:name="Assert Not Null Payload"/>
+    </munit:test>
+    
+    <munit:test name="get-customer-by-customerid-invalid-customerid" description="MUnit Test"
+    expectException="org.mule.module.apikit.exception.NotFoundException">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Database']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#['']"/>
+        </mock:when>
+        <munit:set payload="#[]" doc:name="Set Message">
+            <munit:inbound-properties>
+                <munit:inbound-property key="http.query.params" value="#[['customerId' : '1']]"/>
+            </munit:inbound-properties>
+        </munit:set>
+        <flow-ref name="get-customer" doc:name="Flow Reference to put"/>
+        <munit:assert-null doc:name="Assert Null Payload"/>
+    </munit:test>
+    
+    <munit:test name="unit-test-get-customer" description="MUnit Test">
+        <mock:when messageProcessor=".*:.*" doc:name="Mock">
+            <mock:with-attributes>
+                <mock:with-attribute name="doc:name" whereValue="#['Database']"/>
+            </mock:with-attributes>
+            <mock:then-return payload="#[{&quot;customerId&quot;: &quot;1&quot;,&quot;firstName&quot;: &quot;Ashok&quot;,&quot;lastName&quot;: &quot;Kumar&quot;,&quot;address&quot;: &quot;Jackson Street&quot;}]"/>
+        </mock:when>
+        <munit:set payload="#[]" doc:name="Set Message">
+            <munit:inbound-properties>
+                <munit:inbound-property key="http.query.params" value="#[['customerId' : ]]"/>
+            </munit:inbound-properties>
+        </munit:set>
+        <flow-ref name="get-customer" doc:name="Flow Reference to put"/>
+        <munit:assert-not-null doc:name="Assert Not Null Payload"/>
+    </munit:test>
+</mule>

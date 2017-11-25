@@ -1,0 +1,20 @@
+[
+  {
+    "customerId": "110",
+    "firstName": "Ashok",
+    "lastName": "Kumar",
+    "address":	"jackson street"
+  },
+  {
+    "customerId": "111",
+    "firstName": "John",
+    "lastName": "Oliver",
+    "address":	"Johnston street"
+  },
+  {
+    "customerId": "112",
+    "firstName": "Jo",
+    "lastName": "Opperman",
+    "address":	"Cuba street"
+  }
+]

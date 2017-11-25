@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <db:mysql-config name="MySQL_Configuration" host="localhost" port="3306" user="root" password="admin" database="customerdb" doc:name="MySQL Configuration"/>
+    
+    <http:listener-config xmlns:http="http://www.mulesoft.org/schema/mule/http" name="manage-customer-httpListenerConfig" host="localhost" port="8089" doc:name="HTTP Listener Configuration" basePath="v1"/>
+    <apikit:config xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" name="manage-customer-config" raml="manage-customer.raml" consoleEnabled="false" doc:name="Router" keepRamlBaseUri="true">
+        <apikit:flow-mapping resource="/customers" action="post" content-type="application/json" flow-ref="post-customer"/>
+        <apikit:flow-mapping resource="/customers" action="put" content-type="application/json" flow-ref="put-customer"/>
+        <apikit:flow-mapping resource="/customers" action="get" flow-ref="get-customer"/>
+        <apikit:flow-mapping resource="/customers" action="delete" flow-ref="delete-customer"/>
+    </apikit:config>
+    
+    <flow name="manage-customer-main">
+        <http:listener xmlns:http="http://www.mulesoft.org/schema/mule/http" config-ref="manage-customer-httpListenerConfig" path="/*" doc:name="HTTP"/>
+        <apikit:router xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" config-ref="manage-customer-config" doc:name="APIkit Router"/>
+        <exception-strategy ref="manage-customer-apiKitGlobalExceptionMapping" doc:name="Reference Exception Strategy"/>
+    </flow>
+    
+    
+    <flow name="post-customer">
+        <json:validate-schema schemaLocation="customer.schema" doc:name="Validate JSON Schema"/>
+        <db:insert config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[insert into customer(firstName, lastName, address)values(#[json:firstName], #[json:lastName], #[json:address])]]></db:parameterized-query>
+        </db:insert>
+        <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+        <set-payload value="{ &quot;message&quot;: &quot;Customer has been created&quot; }" doc:name="Set Payload"/>
+    </flow>
+    
+    <flow name="put-customer">
+        <json:validate-schema schemaLocation="customer-update.schema" doc:name="Validate JSON Schema"/>
+        
+        
+        <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object" />
+        <set-variable variableName="rPayload" value="#[payload]" doc:name="Variable"/>
+        
+        
+        <db:select config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[select * from customer where customerId = #[payload.get('customerId')]]]></db:parameterized-query>
+        </db:select>
+        <logger message="PAyload after select: #[payload]" level="INFO" doc:name="Logger"/>
+        <choice doc:name="Choice">
+            <when expression="#[payload.isEmpty()]">
+                <scripting:component doc:name="Groovy">
+                    <scripting:script engine="Groovy"><![CDATA[throw new org.mule.module.apikit.exception.NotFoundException()]]></scripting:script>
+                </scripting:component>
+            </when>
+            <otherwise>
+                <db:update config-ref="MySQL_Configuration" doc:name="Database">
+                    <db:parameterized-query><![CDATA[UPDATE customer
+SET firstName = #[flowVars.rPayload.get('firstName')], lastName = #[flowVars.rPayload.get('lastName')], address = #[flowVars.rPayload.get('address')]
+WHERE customerId = #[flowVars.rPayload.get('customerId')]]]></db:parameterized-query>
+                </db:update>
+                <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+                <set-payload value="{ &quot;message&quot;: &quot;Customer has been updated&quot; }" doc:name="Set Payload"/>
+            </otherwise>
+        </choice>
+
+    </flow>
+    
+    <flow name="delete-customer">
+        <db:select config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[select * from customer where customerId = #[message.inboundProperties.'http.query.params'.customerId]]]></db:parameterized-query>
+        </db:select>
+        <choice doc:name="Choice">
+            <when expression="#[payload.isEmpty()]">
+                <scripting:component doc:name="Groovy">
+                    <scripting:script engine="Groovy"><![CDATA[throw new org.mule.module.apikit.exception.NotFoundException()]]></scripting:script>
+                </scripting:component>
+            </when>
+            <otherwise>
+                <db:delete config-ref="MySQL_Configuration" doc:name="Database">
+                    <db:parameterized-query><![CDATA[delete from customer where customerId = #[message.inboundProperties.'http.query.params'.customerId]]]></db:parameterized-query>
+                </db:delete>
+                <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+                <set-payload value="{ &quot;message&quot;: &quot;Customer has been deleted&quot; }" doc:name="Set Payload"/>
+            </otherwise>
+        </choice>
+
+    </flow>
+    
+    <flow name="get-customer">
+        <choice doc:name="Choice select type">
+            <when expression="#[message.inboundProperties.'http.query.params'.customerId !=null]">
+                <db:select config-ref="MySQL_Configuration" doc:name="Database">
+                    <db:parameterized-query><![CDATA[select * from customer where customerId = #[message.inboundProperties.'http.query.params'.customerId]]]></db:parameterized-query>
+                </db:select>
+            </when>
+            <otherwise>
+                <set-variable variableName="offset" value="#[ message.inboundProperties.'http.query.params'.offset !=null ?message.inboundProperties.'http.query.params'.offset : Integer.parseInt(0)] " doc:name="set Offset"/>
+                <set-variable variableName="limit" value="#[ message.inboundProperties.'http.query.params'.limit !=null ?  message.inboundProperties.'http.query.params'.limit : Integer.parseInt(10)] " doc:name="Set Limit"/>
+                <set-variable variableName="offset1" value="#[Integer.parseInt(flowVars.offset.replaceAll(&quot; &quot;, &quot;&quot;))]" doc:name="Variable"/>
+                <set-variable variableName="limit1" value="#[Integer.parseInt(flowVars.limit.replaceAll(&quot; &quot;, &quot;&quot;))]" doc:name="Variable"/>
+                <db:select config-ref="MySQL_Configuration" doc:name="Default Select">
+                    <db:parameterized-query><![CDATA[select * from customer LIMIT  #[flowVars.limit1] OFFSET #[flowVars.offset1]]]></db:parameterized-query>
+                </db:select>
+            </otherwise>
+        </choice>
+        <choice doc:name="Choice">
+            <when expression="#[payload.isEmpty()]">
+                <scripting:component doc:name="Groovy">
+                    <scripting:script engine="Groovy"><![CDATA[throw new org.mule.module.apikit.exception.NotFoundException()]]></scripting:script>
+                </scripting:component>
+            </when>
+            <otherwise>
+                <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+                <json:object-to-json-transformer doc:name="Object to JSON"/>
+            </otherwise>
+        </choice>
+        <message-properties-transformer doc:name="Message Properties">
+            <add-message-property key="Cashe-Control" value="private, max-age=60"/>
+        </message-properties-transformer>
+
+    </flow>
+    
+    <apikit:mapping-exception-strategy xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" name="manage-customer-apiKitGlobalExceptionMapping">
+        <apikit:mapping statusCode="404">
+            <apikit:exception value="org.mule.module.apikit.exception.NotFoundException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Resource not found&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="405">
+            <apikit:exception value="org.mule.module.apikit.exception.MethodNotAllowedException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Method not allowed&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="415">
+            <apikit:exception value="org.mule.module.apikit.exception.UnsupportedMediaTypeException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Unsupported media type&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="406">
+            <apikit:exception value="org.mule.module.apikit.exception.NotAcceptableException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Not acceptable&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="400">
+            <apikit:exception value="org.mule.module.apikit.exception.BadRequestException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <logger message="logger:#[exception.message]" level="INFO" doc:name="Logger"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Bad request&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="500">
+            <apikit:exception value="org.mule.module.db.internal.domain.connection.ConnectionCreationException"/>
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Server error&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+    </apikit:mapping-exception-strategy>
+    
+</mule>
