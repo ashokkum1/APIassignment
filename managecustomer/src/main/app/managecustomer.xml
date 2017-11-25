@@ -16,7 +16,7 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
     <db:mysql-config name="MySQL_Configuration" host="localhost" port="3306" user="root" password="admin" database="customerdb" doc:name="MySQL Configuration"/>
     
-    <http:listener-config xmlns:http="http://www.mulesoft.org/schema/mule/http" name="manage-customer-httpListenerConfig" host="localhost" port="8089" doc:name="HTTP Listener Configuration" basePath="v1"/>
+    <http:listener-config xmlns:http="http://www.mulesoft.org/schema/mule/http" name="manage-customer-httpListenerConfig" host="localhost" port="8081" doc:name="HTTP Listener Configuration" basePath="v1"/>
     <apikit:config xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" name="manage-customer-config" raml="manage-customer.raml" consoleEnabled="false" doc:name="Router" keepRamlBaseUri="true">
         <apikit:flow-mapping resource="/customers" action="post" content-type="application/json" flow-ref="post-customer"/>
         <apikit:flow-mapping resource="/customers" action="put" content-type="application/json" flow-ref="put-customer"/>
